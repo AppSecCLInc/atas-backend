@@ -9,8 +9,21 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.send("ATAS backend is running.");
+});
+
+// Main endpoint
 app.post("/api/atas", async (req, res) => {
+  console.log("📥 Request body received:", req.body);
+
   const { userMessage } = req.body;
+
+  if (!userMessage || userMessage.trim() === "") {
+    console.warn("⚠️ Empty or missing userMessage.");
+    return res.status(400).json({ error: "userMessage is required." });
+  }
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -36,11 +49,19 @@ app.post("/api/atas", async (req, res) => {
     });
 
     const data = await response.json();
+
+    if (!data.choices || !data.choices.length) {
+      console.error("❌ No choices in OpenAI response:", data);
+      return res.status(500).json({ error: "Invalid response from OpenAI." });
+    }
+
     res.json({ result: data.choices[0].message.content });
   } catch (error) {
-    res.status(500).json({ error: "Error connecting to OpenAI API" });
+    console.error("❌ Error calling OpenAI:", error);
+    res.status(500).json({ error: error.message || "Error connecting to OpenAI API." });
   }
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`ATAS backend running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ ATAS backend running on port ${PORT}`));
